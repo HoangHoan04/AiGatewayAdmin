@@ -1,0 +1,31 @@
+<div class="sso-gateway-container">
+  <div class="gateway-header">
+    <div class="gateway-logo-badge" style="background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);">
+      <span nz-icon nzType="thunderbolt" nzTheme="outline"></span>
+    </div>
+    <h1 class="gateway-title">AI Gateway Enterprise</h1>
+    <p class="gateway-subtitle">Cổng Quản Trị &amp; Điều Phối Mô Hình AI / LLM Toàn Hệ Sinh Thái ERP</p>
+  </div>
+
+  <div class="gateway-actions">
+    <button
+      nz-button
+      nzType="primary"
+      nzBlock
+      nzSize="large"
+      [nzLoading]="redirecting"
+      (click)="redirectToSso()"
+      class="sso-login-btn"
+    >
+      @if (!redirecting) {
+        <span nz-icon nzType="login" nzTheme="outline"></span>
+      }
+      <span>Chuyển đến Cổng Đăng Nhập SSO</span>
+    </button>
+  </div>
+
+  <div class="gateway-footer">
+    <span nz-icon nzType="safety-certificate" nzTheme="outline"></span>
+    <span>Xác thực mã hóa an toàn chuẩn OAuth2 OpenID Connect &amp; JWT RS256</span>
+  </div>
+</div>

@@ -1,0 +1,42 @@
+@use 'styles/variables';
+@use 'styles/global';
+
+.custom-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--background-card, #ffffff);
+}
+
+.kpi-card {
+  border-radius: 14px;
+  padding: 20px;
+  color: #fff;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.json-viewer {
+  background: #0f172a;
+  color: #38bdf8;
+  padding: 16px;
+  border-radius: 8px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  max-height: 450px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.badge-system {
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  font-size: 11px;
+}
