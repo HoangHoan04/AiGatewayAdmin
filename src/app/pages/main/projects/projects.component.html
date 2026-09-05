@@ -1,0 +1,320 @@
+<div class="projects-container">
+  <div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="page-title mb-1">
+        <i nz-icon nzType="project" class="me-2 text-primary"></i>
+        Dự Án & Quản Lý API Keys
+      </h2>
+      <p class="page-subtitle text-muted mb-0">
+        Phân quyền truy cập các Microservice theo Project, cấp phát API Key chuẩn <code class="text-primary">sk-gw-&#123;project&#125;</code>, kiểm soát ngân sách Quota tự động
+      </p>
+    </div>
+    <button nz-button nzType="primary" (click)="openCreateProjectModal()">
+      <i nz-icon nzType="plus"></i> Tạo Dự Án Mới
+    </button>
+  </div>
+
+  <nz-spin [nzSpinning]="isLoading">
+    <div nz-row [nzGutter]="[16, 16]">
+      <div nz-col [nzXs]="24" [nzLg]="8" *ngFor="let p of projects">
+        <nz-card class="project-card shadow-sm border-0 h-100" [nzActions]="[actionKeys, actionQuota]">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <h4 class="font-weight-bold mb-1">{{ p.name }}</h4>
+              <code class="bg-light px-2 py-1 rounded text-primary">{{ p.code }}</code>
+            </div>
+            <nz-badge [nzStatus]="p.isActive ? 'success' : 'default'" [nzText]="p.isActive ? 'Hoạt động' : 'Tắt'"></nz-badge>
+          </div>
+
+          <p class="text-muted small mb-3 description-box">{{ p.description || 'Không có mô tả bổ sung.' }}</p>
+
+          <!-- Quota Progress Bars -->
+          <div class="quota-box bg-light p-3 rounded mb-3">
+            <div class="d-flex justify-content-between small mb-1">
+              <span>Tokens Tháng:</span>
+              <strong [class.text-danger]="calcPercent(p.quota?.currentMonthTokens || 0, p.quota?.tokenLimit) > 80">
+                {{ (p.quota?.currentMonthTokens || 0) | number }} / {{ (p.quota?.tokenLimit || 0) | number }}
+              </strong>
+            </div>
+            <nz-progress
+              [nzPercent]="calcPercent(p.quota?.currentMonthTokens || 0, p.quota?.tokenLimit)"
+              [nzStatus]="calcPercent(p.quota?.currentMonthTokens || 0, p.quota?.tokenLimit) > 80 ? 'exception' : 'active'"
+              nzSize="small"
+            ></nz-progress>
+
+            <div class="d-flex justify-content-between small mt-2 mb-1">
+              <span>Ngân Sách Chi Phí ($):</span>
+              <strong class="text-success">
+                ${{ (p.quota?.currentMonthCostUsd || 0) | number: '1.2-4' }} / ${{ (p.quota?.costLimitUsd || 0) | number: '1.0-2' }}
+              </strong>
+            </div>
+            <nz-progress
+              [nzPercent]="calcPercent(p.quota?.currentMonthCostUsd || 0, p.quota?.costLimitUsd)"
+              [nzStrokeColor]="'#52c41a'"
+              nzSize="small"
+            ></nz-progress>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center small text-muted">
+            <span><i nz-icon nzType="key" class="me-1"></i> {{ p.activeKeyCount }} Khóa API đang hoạt động</span>
+            <span>Hạn mức: <strong>{{ p.quota?.rateLimitRpm || 120 }} RPM</strong></span>
+          </div>
+
+          <ng-template #actionKeys>
+            <span (click)="openKeysDrawer(p)" class="action-btn text-primary">
+              <i nz-icon nzType="key"></i> Quản lý API Keys
+            </span>
+          </ng-template>
+          <ng-template #actionQuota>
+            <span (click)="openQuotaModal(p)" class="action-btn">
+              <i nz-icon nzType="setting"></i> Cài đặt Quota
+            </span>
+          </ng-template>
+        </nz-card>
+      </div>
+    </div>
+  </nz-spin>
+
+  <!-- Create Project Modal -->
+  <nz-modal
+    [(nzVisible)]="projectModalVisible"
+    nzTitle="Tạo Dự Án AI Mới"
+    (nzOnCancel)="projectModalVisible = false"
+    (nzOnOk)="handleSaveProject()"
+    [nzOkLoading]="isSubmittingProject"
+    nzWidth="640px"
+  >
+    <ng-container *nzModalContent>
+      <form nz-form [formGroup]="projectForm" nzLayout="vertical">
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Tên Dự Án (Microservice)</nz-form-label>
+              <nz-form-control nzErrorTip="Vui lòng nhập tên">
+                <input nz-input formControlName="name" placeholder="HRM Core Service" />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Project Code (Slug viết thường)</nz-form-label>
+              <nz-form-control nzErrorTip="Chỉ gồm chữ thường, số, gạch ngang (vd: hrm-service)">
+                <input nz-input formControlName="code" placeholder="hrm-service" />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <nz-form-item>
+          <nz-form-label>Mô Tả Dự Án</nz-form-label>
+          <nz-form-control>
+            <textarea nz-input formControlName="description" rows="2" placeholder="Mục đích sử dụng AI cho dự án này..."></textarea>
+          </nz-form-control>
+        </nz-form-item>
+
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label>Mô Hình Mặc Định</nz-form-label>
+              <nz-form-control>
+                <nz-select formControlName="defaultModelId" nzPlaceHolder="Chọn Model">
+                  <nz-option *ngFor="let m of models" [nzLabel]="m.displayName" [nzValue]="m.id"></nz-option>
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label>Hạn Mức Tokens / Tháng</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="tokenLimit" [nzMin]="100000" [nzStep]="1000000" class="w-100"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label>Hạn Mức Ngân Sách ($/tháng)</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="costLimitUsd" [nzMin]="1" [nzStep]="10" class="w-100"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label>Rate Limit (RPM)</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="rateLimitRpm" [nzMin]="10" [nzMax]="1000" class="w-100"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+      </form>
+    </ng-container>
+  </nz-modal>
+
+  <!-- API Keys Drawer -->
+  <nz-drawer
+    [nzVisible]="keysDrawerVisible"
+    [nzWidth]="640"
+    [nzTitle]="'Quản lý API Keys - ' + (selectedProject?.name || '')"
+    (nzOnClose)="keysDrawerVisible = false"
+  >
+    <ng-container *nzDrawerContent>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted small">Cấp phát API key cho microservice gọi vào <code class="text-primary">/api/v1/ai/**</code></span>
+        <button nz-button nzType="primary" nzSize="small" (click)="openGenerateKeyModal()">
+          <i nz-icon nzType="key"></i> Sinh Key Mới
+        </button>
+      </div>
+
+      <nz-table #keysTable [nzData]="keysList" [nzLoading]="isLoadingKeys" nzSize="middle" [nzShowPagination]="false">
+        <thead>
+          <tr>
+            <th>Tên Khóa / Prefix</th>
+            <th>Rate Limit</th>
+            <th>Ngày Tạo</th>
+            <th>Trạng Thái</th>
+            <th nzAlign="right">Thao Tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let k of keysTable.data">
+            <td>
+              <div class="font-weight-bold">{{ k.name }}</div>
+              <code class="small text-muted">{{ k.keyPrefix }}...</code>
+            </td>
+            <td>{{ k.rateLimitRpm }} RPM</td>
+            <td>{{ k.createdAt | date: 'dd/MM/yyyy' }}</td>
+            <td>
+              <nz-badge [nzStatus]="k.isActive && !k.revokedAt ? 'success' : 'error'" [nzText]="k.isActive && !k.revokedAt ? 'Hoạt động' : 'Đã thu hồi'"></nz-badge>
+            </td>
+            <td nzAlign="right">
+              <button
+                *ngIf="k.isActive && !k.revokedAt"
+                nz-button
+                nzDanger
+                nzSize="small"
+                nzType="text"
+                nz-popconfirm
+                nzPopconfirmTitle="Bạn có chắc muốn thu hồi API Key này? Tất cả các request dùng key này sẽ bị từ chối ngay lập tức."
+                (nzOnConfirm)="revokeKey(k)"
+              >
+                Thu hồi
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </nz-table>
+    </ng-container>
+  </nz-drawer>
+
+  <!-- Generate Key Modal (Revealed ONCE!) -->
+  <nz-modal
+    [(nzVisible)]="genKeyModalVisible"
+    nzTitle="Sinh Khóa API Mới"
+    (nzOnCancel)="genKeyModalVisible = false"
+    [nzFooter]="generatedPlaintextKey ? modalCloseFooter : modalGenFooter"
+    nzWidth="540px"
+  >
+    <ng-container *nzModalContent>
+      <!-- Form before gen -->
+      <div *ngIf="!generatedPlaintextKey">
+        <form nz-form [formGroup]="keyForm" nzLayout="vertical">
+          <nz-form-item>
+            <nz-form-label nzRequired>Tên Gợi Nhớ Cho Key</nz-form-label>
+            <nz-form-control nzErrorTip="Vui lòng nhập tên">
+              <input nz-input formControlName="name" placeholder="Ví dụ: Backend Inbound Service Key" />
+            </nz-form-control>
+          </nz-form-item>
+          <div nz-row [nzGutter]="16">
+            <div nz-col [nzSpan]="12">
+              <nz-form-item>
+                <nz-form-label>Rate Limit (RPM)</nz-form-label>
+                <nz-form-control>
+                  <nz-input-number formControlName="rateLimitRpm" [nzMin]="10" class="w-100"></nz-input-number>
+                </nz-form-control>
+              </nz-form-item>
+            </div>
+            <div nz-col [nzSpan]="12">
+              <nz-form-item>
+                <nz-form-label>Hạn Sử Dụng (Ngày)</nz-form-label>
+                <nz-form-control>
+                  <nz-input-number formControlName="expiresInDays" [nzMin]="1" class="w-100"></nz-input-number>
+                </nz-form-control>
+              </nz-form-item>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Result with plaintext key -->
+      <div *ngIf="generatedPlaintextKey" class="key-result-box">
+        <nz-alert
+          nzType="warning"
+          nzMessage="QUAN TRỌNG: Hãy sao chép khóa này ngay bây giờ!"
+          nzDescription="Vì lý do bảo mật và tuân thủ PBKDF2-SHA512 hashing, hệ thống sẽ KHÔNG BAO GIỜ hiển thị lại khóa này sau khi bạn đóng cửa sổ này."
+          nzShowIcon
+          class="mb-3"
+        ></nz-alert>
+
+        <div class="key-display p-3 bg-dark text-white rounded d-flex justify-content-between align-items-center">
+          <code class="text-warning font-weight-bold font-size-md text-break me-2">{{ generatedPlaintextKey }}</code>
+          <button nz-button nzType="primary" (click)="copyToClipboard(generatedPlaintextKey)">
+            <i nz-icon nzType="copy"></i> Sao chép
+          </button>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-template #modalGenFooter>
+      <button nz-button nzType="default" (click)="genKeyModalVisible = false">Hủy</button>
+      <button nz-button nzType="primary" [nzLoading]="isSubmittingKey" (click)="handleGenerateKey()">Sinh Khóa Ngay</button>
+    </ng-template>
+
+    <ng-template #modalCloseFooter>
+      <button nz-button nzType="primary" (click)="genKeyModalVisible = false">Đã Sao Chép & Đóng</button>
+    </ng-template>
+  </nz-modal>
+
+  <!-- Quota Modal -->
+  <nz-modal
+    [(nzVisible)]="quotaModalVisible"
+    [nzTitle]="'Cấu Hình Quota - ' + (selectedProject?.name || '')"
+    (nzOnCancel)="quotaModalVisible = false"
+    (nzOnOk)="handleSaveQuota()"
+    [nzOkLoading]="isSubmittingQuota"
+    nzWidth="540px"
+  >
+    <ng-container *nzModalContent>
+      <form nz-form [formGroup]="quotaForm" nzLayout="vertical">
+        <nz-form-item>
+          <nz-form-label nzRequired>Hạn Mức Tokens Tháng</nz-form-label>
+          <nz-form-control>
+            <nz-input-number formControlName="tokenLimit" [nzMin]="100000" [nzStep]="1000000" class="w-100"></nz-input-number>
+          </nz-form-control>
+        </nz-form-item>
+
+        <nz-form-item>
+          <nz-form-label nzRequired>Hạn Mức Ngân Sách USD / Tháng</nz-form-label>
+          <nz-form-control>
+            <nz-input-number formControlName="costLimitUsd" [nzMin]="1" [nzStep]="10" class="w-100"></nz-input-number>
+          </nz-form-control>
+        </nz-form-item>
+
+        <nz-form-item>
+          <nz-form-label nzRequired>Ngưỡng Cảnh Báo Ngân Sách (%)</nz-form-label>
+          <nz-form-control>
+            <nz-slider formControlName="alertThreshold" [nzMin]="50" [nzMax]="100" [nzMarks]="{'50':'50%', '80':'80%', '100':'100%'}"></nz-slider>
+          </nz-form-control>
+        </nz-form-item>
+
+        <nz-form-item>
+          <label nz-checkbox formControlName="softLimit">Chế độ Soft Limit (Chỉ cảnh báo, không ngắt dịch vụ khi vượt quá)</label>
+        </nz-form-item>
+      </form>
+    </ng-container>
+  </nz-modal>
+</div>

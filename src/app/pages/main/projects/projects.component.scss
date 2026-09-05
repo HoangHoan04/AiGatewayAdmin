@@ -1,0 +1,31 @@
+.projects-container {
+  padding: 16px;
+
+  .project-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+    }
+  }
+
+  .description-box {
+    min-height: 38px;
+  }
+
+  .action-btn {
+    cursor: pointer;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .key-display {
+    border: 1px solid #434343;
+    code {
+      font-family: 'Courier New', Courier, monospace;
+      letter-spacing: 0.5px;
+    }
+  }
+}

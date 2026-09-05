@@ -1,0 +1,163 @@
+<div class="providers-container">
+  <div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="page-title mb-1">
+        <i nz-icon nzType="cloud-server" class="me-2 text-primary"></i>
+        Quản Lý AI Providers
+      </h2>
+      <p class="page-subtitle text-muted mb-0">
+        Cấu hình upstream LLM Providers, bảo mật API Key với mã hóa AES-256-GCM, tự động fallback và giám sát tình trạng
+      </p>
+    </div>
+    <button nz-button nzType="primary" (click)="openCreateModal()">
+      <i nz-icon nzType="plus"></i> Thêm Provider Mới
+    </button>
+  </div>
+
+  <nz-spin [nzSpinning]="isLoading">
+    <div nz-row [nzGutter]="[16, 16]">
+      <div nz-col [nzXs]="24" [nzSm]="12" [nzLg]="8" *ngFor="let p of providers">
+        <nz-card class="provider-card shadow-sm border-0 h-100" [nzActions]="[actionTest, actionEdit, actionDelete]">
+          <div class="provider-card-header d-flex justify-content-between align-items-start mb-3">
+            <div>
+              <h4 class="provider-name mb-1 font-weight-bold">{{ p.name }}</h4>
+              <nz-tag [nzColor]="p.providerType === 'OpenAI' ? 'blue' : p.providerType === 'Gemini' ? 'purple' : 'cyan'">
+                {{ p.providerType }}
+              </nz-tag>
+            </div>
+            <nz-tag [nzColor]="p.healthStatus === 'Healthy' ? 'success' : 'default'">
+              <i nz-icon [nzType]="p.healthStatus === 'Healthy' ? 'check-circle' : 'question-circle'"></i>
+              {{ p.healthStatus }}
+            </nz-tag>
+          </div>
+
+          <div class="provider-info mb-2 small">
+            <div class="text-muted text-truncate mb-1">
+              <i nz-icon nzType="link" class="me-1"></i>
+              <span>{{ p.baseUrl }}</span>
+            </div>
+            <div class="d-flex justify-content-between text-muted mt-2">
+              <span>Độ ưu tiên: <strong>#{{ p.priority }}</strong></span>
+              <span>Models: <strong>{{ p.modelCount }}</strong></span>
+              <span>Timeout: <strong>{{ p.timeoutMs / 1000 }}s</strong></span>
+            </div>
+          </div>
+
+          <div class="provider-security mt-3 pt-2 border-top d-flex justify-content-between align-items-center small">
+            <span class="text-muted">
+              <i nz-icon nzType="key" class="me-1 text-warning"></i>
+              API Key: <span class="badge bg-light text-dark">Đã mã hóa AES</span>
+            </span>
+            <nz-switch [ngModel]="p.isActive" nzDisabled nzSize="small"></nz-switch>
+          </div>
+
+          <ng-template #actionTest>
+            <span (click)="testConnection(p)" class="action-btn text-primary">
+              <i nz-icon nzType="sync" [nzSpin]="!!p.testing"></i> Test Ping
+            </span>
+          </ng-template>
+          <ng-template #actionEdit>
+            <span (click)="openEditModal(p)" class="action-btn">
+              <i nz-icon nzType="edit"></i> Sửa
+            </span>
+          </ng-template>
+          <ng-template #actionDelete>
+            <span nz-popconfirm nzPopconfirmTitle="Bạn có chắc muốn xóa provider này?" (nzOnConfirm)="deleteProvider(p)" class="action-btn text-danger">
+              <i nz-icon nzType="delete"></i> Xóa
+            </span>
+          </ng-template>
+        </nz-card>
+      </div>
+    </div>
+  </nz-spin>
+
+  <!-- Create/Edit Modal -->
+  <nz-modal
+    [(nzVisible)]="modalVisible"
+    [nzTitle]="editingProviderId ? 'Cập Nhật AI Provider' : 'Thêm Mới AI Provider'"
+    (nzOnCancel)="modalVisible = false"
+    (nzOnOk)="handleSave()"
+    [nzOkLoading]="isSubmitting"
+    nzWidth="680px"
+  >
+    <ng-container *nzModalContent>
+      <form nz-form [formGroup]="form" nzLayout="vertical">
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Tên Hiển Thị Provider</nz-form-label>
+              <nz-form-control nzErrorTip="Vui lòng nhập tên provider">
+                <input nz-input formControlName="name" placeholder="Ví dụ: OpenAI Production" />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Loại Provider</nz-form-label>
+              <nz-form-control>
+                <nz-select formControlName="providerType">
+                  <nz-option *ngFor="let t of providerTypes" [nzLabel]="t.label" [nzValue]="t.value"></nz-option>
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <nz-form-item>
+          <nz-form-label nzRequired>Base API URL</nz-form-label>
+          <nz-form-control nzErrorTip="Vui lòng nhập Base URL">
+            <input nz-input formControlName="baseUrl" placeholder="https://api.openai.com/v1" />
+          </nz-form-control>
+        </nz-form-item>
+
+        <nz-form-item>
+          <nz-form-label [nzRequired]="!editingProviderId">
+            API Key (Secret)
+            <span *ngIf="editingProviderId" class="text-muted font-weight-normal small ms-1">(để trống nếu không đổi)</span>
+          </nz-form-label>
+          <nz-form-control>
+            <input nz-input type="password" formControlName="apiKey" placeholder="sk-... hoặc API Key nhà cung cấp" />
+          </nz-form-control>
+        </nz-form-item>
+
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="8">
+            <nz-form-item>
+              <nz-form-label nzRequired>Ưu Tiên (Priority)</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="priority" [nzMin]="1" [nzMax]="100" class="w-100"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="8">
+            <nz-form-item>
+              <nz-form-label nzRequired>Timeout (ms)</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="timeoutMs" [nzMin]="5000" [nzMax]="300000" [nzStep]="5000" class="w-100"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="8">
+            <nz-form-item>
+              <nz-form-label nzRequired>Số Lần Thử Lại</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="maxRetries" [nzMin]="0" [nzMax]="5" class="w-100"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <nz-form-item>
+          <nz-form-label>Ghi Chú & Mô Tả</nz-form-label>
+          <nz-form-control>
+            <textarea nz-input formControlName="notes" rows="2" placeholder="Ghi chú về provider, tài khoản hoặc deployment..."></textarea>
+          </nz-form-control>
+        </nz-form-item>
+
+        <nz-form-item>
+          <label nz-checkbox formControlName="isActive">Kích hoạt Provider này trong Router định tuyến</label>
+        </nz-form-item>
+      </form>
+    </ng-container>
+  </nz-modal>
+</div>

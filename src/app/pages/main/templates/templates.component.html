@@ -1,0 +1,301 @@
+<div class="templates-container">
+  <div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="page-title mb-1">
+        <i nz-icon nzType="code" class="me-2 text-primary"></i>
+        Prompt Studio & Quản Lý Mẫu Prompt
+      </h2>
+      <p class="page-subtitle text-muted mb-0">
+        Soạn thảo, lập phiên bản (version control), interpolate tham số động và kiểm thử trực tiếp mẫu prompt trước khi phát hành cho microservices
+      </p>
+    </div>
+    <button nz-button nzType="primary" (click)="openCreateModal()">
+      <i nz-icon nzType="plus"></i> Tạo Mẫu Prompt Mới
+    </button>
+  </div>
+
+  <nz-spin [nzSpinning]="isLoading">
+    <div nz-row [nzGutter]="[16, 16]">
+      <div nz-col [nzXs]="24" [nzLg]="8" *ngFor="let t of templates">
+        <nz-card class="template-card shadow-sm border-0 h-100" [nzActions]="[actionTest, actionVersions]">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <h4 class="font-weight-bold mb-1">{{ t.name }}</h4>
+              <code class="bg-light px-2 py-1 rounded text-primary">{{ t.code }}</code>
+            </div>
+            <nz-tag nzColor="blue">v{{ t.publishedVersionNumber || 1 }}</nz-tag>
+          </div>
+
+          <div class="small text-muted mb-2">
+            <span>Dự án: <strong>{{ t.projectName || 'Toàn hệ sinh thái' }}</strong></span>
+            <span class="ms-2">Module: <strong>{{ t.module }}</strong></span>
+          </div>
+
+          <p class="text-muted small mb-3 description-box">{{ t.description || 'Không có mô tả.' }}</p>
+
+          <div class="prompt-preview p-2 bg-light rounded small mb-2">
+            <div class="text-muted mb-1 font-weight-bold">System Prompt:</div>
+            <div class="text-truncate text-secondary">{{ t.systemPrompt || 'Không có' }}</div>
+            <div class="text-muted mt-2 mb-1 font-weight-bold">User Template:</div>
+            <div class="text-truncate text-secondary">{{ t.userPromptTemplate || 'Không có' }}</div>
+          </div>
+
+          <ng-template #actionTest>
+            <span (click)="openTestDrawer(t)" class="action-btn text-primary">
+              <i nz-icon nzType="play-circle"></i> Thử nghiệm Prompt
+            </span>
+          </ng-template>
+          <ng-template #actionVersions>
+            <span (click)="openVersionsDrawer(t)" class="action-btn">
+              <i nz-icon nzType="history"></i> Lịch sử phiên bản
+            </span>
+          </ng-template>
+        </nz-card>
+      </div>
+    </div>
+  </nz-spin>
+
+  <!-- Create Template Modal -->
+  <nz-modal
+    [(nzVisible)]="createModalVisible"
+    nzTitle="Tạo Mẫu Prompt Mới"
+    (nzOnCancel)="createModalVisible = false"
+    (nzOnOk)="handleCreateTemplate()"
+    [nzOkLoading]="isSubmitting"
+    nzWidth="720px"
+  >
+    <ng-container *nzModalContent>
+      <form nz-form [formGroup]="createForm" nzLayout="vertical">
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Tên Mẫu Prompt</nz-form-label>
+              <nz-form-control nzErrorTip="Vui lòng nhập tên">
+                <input nz-input formControlName="name" placeholder="Ví dụ: Tạo Mô Tả Công Việc (JD)" />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Mã Code (Slug gọi API)</nz-form-label>
+              <nz-form-control nzErrorTip="Chỉ gồm chữ thường, số, gạch ngang">
+                <input nz-input formControlName="code" placeholder="hrm-jd-generator" />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="8">
+            <nz-form-item>
+              <nz-form-label>Dự Án Áp Dụng</nz-form-label>
+              <nz-form-control>
+                <nz-select formControlName="projectId" nzPlaceHolder="Toàn hệ sinh thái" nzAllowClear>
+                  <nz-option *ngFor="let p of projects" [nzLabel]="p.name" [nzValue]="p.id"></nz-option>
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="8">
+            <nz-form-item>
+              <nz-form-label>Hệ Thống Nguồn</nz-form-label>
+              <nz-form-control>
+                <input nz-input formControlName="sourceSystem" placeholder="HRM, WMS, TMS..." />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="8">
+            <nz-form-item>
+              <nz-form-label>Phân Hệ / Module</nz-form-label>
+              <nz-form-control>
+                <input nz-input formControlName="module" placeholder="Recruitment, Inbound..." />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <nz-form-item>
+          <nz-form-label>Mô Tả</nz-form-label>
+          <nz-form-control>
+            <input nz-input formControlName="description" placeholder="Mục đích sử dụng của mẫu prompt..." />
+          </nz-form-control>
+        </nz-form-item>
+
+        <nz-form-item>
+          <nz-form-label nzRequired>System Prompt (Hướng dẫn tính cách, định dạng AI)</nz-form-label>
+          <nz-form-control nzErrorTip="Vui lòng nhập System Prompt">
+            <textarea nz-input formControlName="systemPrompt" rows="3" placeholder="Bạn là chuyên gia nhân sự cao cấp..."></textarea>
+          </nz-form-control>
+        </nz-form-item>
+
+        <nz-form-item>
+          <nz-form-label nzRequired>
+            User Prompt Template (Hỗ trợ biến động dạng <code>{{ '{{' }}bien{{ '}}' }}</code>)
+          </nz-form-label>
+          <nz-form-control nzErrorTip="Vui lòng nhập User Template">
+            <textarea nz-input formControlName="userPromptTemplate" rows="4" [placeholder]="'Hãy viết mô tả công việc cho vị trí {{title}}, yêu cầu kỹ năng: {{skills}}...'"></textarea>
+          </nz-form-control>
+        </nz-form-item>
+      </form>
+    </ng-container>
+  </nz-modal>
+
+  <!-- Versions Drawer -->
+  <nz-drawer
+    [nzVisible]="versionsDrawerVisible"
+    [nzWidth]="720"
+    [nzTitle]="'Lịch sử phiên bản - ' + (selectedTemplate?.name || '')"
+    (nzOnClose)="versionsDrawerVisible = false"
+  >
+    <ng-container *nzDrawerContent>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted small">Quản lý các bản phát hành, rollback hoặc tạo phiên bản mới</span>
+        <button nz-button nzType="primary" nzSize="small" (click)="openNewVersionModal()">
+          <i nz-icon nzType="plus"></i> Tạo Bản v{{ (versionsList.length || 0) + 1 }}
+        </button>
+      </div>
+
+      <div class="version-timeline">
+        <div *ngFor="let v of versionsList" class="version-item p-3 mb-3 border rounded" [class.border-primary]="v.isPublished">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <strong class="font-size-md">Phiên bản v{{ v.versionNumber }}</strong>
+              <nz-tag *ngIf="v.isPublished" nzColor="success" class="ms-2">Đang sử dụng (Published)</nz-tag>
+            </div>
+            <button *ngIf="!v.isPublished" nz-button nzType="default" nzSize="small" (click)="publishVersion(v.id)">
+              <i nz-icon nzType="check"></i> Xuất bản bản này
+            </button>
+          </div>
+
+          <div class="small text-muted mb-2">
+            Ghi chú thay đổi: <em>{{ v.changeNote || 'Không có ghi chú' }}</em>
+          </div>
+
+          <div class="bg-light p-2 rounded small">
+            <div class="font-weight-bold text-muted">System Prompt:</div>
+            <pre class="mb-2 text-wrap">{{ v.systemPrompt }}</pre>
+            <div class="font-weight-bold text-muted">User Template:</div>
+            <pre class="mb-0 text-wrap">{{ v.userPromptTemplate }}</pre>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </nz-drawer>
+
+  <!-- New Version Modal -->
+  <nz-modal
+    [(nzVisible)]="newVersionModalVisible"
+    nzTitle="Tạo Phiên Bản Prompt Mới"
+    (nzOnCancel)="newVersionModalVisible = false"
+    (nzOnOk)="handleCreateVersion()"
+    [nzOkLoading]="isSubmittingVersion"
+    nzWidth="680px"
+  >
+    <ng-container *nzModalContent>
+      <form nz-form [formGroup]="versionForm" nzLayout="vertical">
+        <nz-form-item>
+          <nz-form-label nzRequired>Ghi Chú Thay Đổi (Change Note)</nz-form-label>
+          <nz-form-control nzErrorTip="Vui lòng ghi chú lý do thay đổi">
+            <input nz-input formControlName="changeNote" placeholder="Cải thiện độ chính xác, tinh chỉnh lại prompt..." />
+          </nz-form-control>
+        </nz-form-item>
+
+        <nz-form-item>
+          <nz-form-label nzRequired>System Prompt</nz-form-label>
+          <nz-form-control>
+            <textarea nz-input formControlName="systemPrompt" rows="3"></textarea>
+          </nz-form-control>
+        </nz-form-item>
+
+        <nz-form-item>
+          <nz-form-label nzRequired>User Prompt Template</nz-form-label>
+          <nz-form-control>
+            <textarea nz-input formControlName="userPromptTemplate" rows="4"></textarea>
+          </nz-form-control>
+        </nz-form-item>
+
+        <label nz-checkbox formControlName="publishImmediately">Phát hành ngay lập tức cho các cuộc gọi API tiếp theo</label>
+      </form>
+    </ng-container>
+  </nz-modal>
+
+  <!-- Test Runner Drawer -->
+  <nz-drawer
+    [nzVisible]="testDrawerVisible"
+    [nzWidth]="760"
+    [nzTitle]="'Kiểm thử Prompt - ' + (selectedTemplate?.name || '')"
+    (nzOnClose)="testDrawerVisible = false"
+  >
+    <ng-container *nzDrawerContent>
+      <form nz-form [formGroup]="testForm" nzLayout="vertical">
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label>Chọn Mô Hình AI</nz-form-label>
+              <nz-form-control>
+                <nz-select formControlName="modelCode" nzPlaceHolder="Mặc định theo hệ thống">
+                  <nz-option *ngFor="let m of models" [nzLabel]="m.displayName" [nzValue]="m.modelCode"></nz-option>
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="6">
+            <nz-form-item>
+              <nz-form-label>Temperature</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="temperature" [nzMin]="0" [nzMax]="1" [nzStep]="0.1" class="w-100"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="6">
+            <nz-form-item>
+              <nz-form-label>Max Tokens</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="maxTokens" [nzMin]="100" [nzMax]="4096" [nzStep]="256" class="w-100"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <div *ngIf="extractedVariables.length > 0" class="variables-box p-3 bg-light rounded mb-3">
+          <h5 class="font-size-sm font-weight-bold mb-3 text-primary">
+            <i nz-icon nzType="sliders"></i> Giá Trị Tham Số Động (Interpolation Variables):
+          </h5>
+          <div formGroupName="variables">
+            <nz-form-item *ngFor="let v of extractedVariables">
+              <nz-form-label nzRequired>{{ v }}</nz-form-label>
+              <nz-form-control nzErrorTip="Vui lòng nhập giá trị">
+                <input nz-input [formControlName]="v" [placeholder]="'Nhập giá trị cho {{ ' + v + ' }}'" />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <button nz-button nzType="primary" class="w-100 mb-4" [nzLoading]="isTesting" (click)="runTest()">
+          <i nz-icon nzType="play-circle"></i> Chạy Thử Nghiệm Ngay
+        </button>
+      </form>
+
+      <!-- Test Result Box -->
+      <div *ngIf="testResult" class="test-result-section mt-3 pt-3 border-top">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="font-weight-bold mb-0 text-success">
+            <i nz-icon nzType="check-circle"></i> Kết Quả Trả Về Từ LLM
+          </h5>
+          <div class="small text-muted">
+            Model: <strong>{{ testResult.model }}</strong> | Độ trễ: <strong>{{ testResult.latencyMs }}ms</strong> | Tokens: <strong>{{ testResult.totalTokens }}</strong>
+          </div>
+        </div>
+
+        <div class="result-box p-3 bg-dark text-white rounded mb-3">
+          <pre class="mb-0 text-wrap text-white font-size-sm">{{ testResult.response }}</pre>
+        </div>
+
+        <div class="rendered-prompt p-2 bg-light rounded small">
+          <div class="text-muted font-weight-bold">Prompt Sau Khi Ghép Biến:</div>
+          <pre class="mb-0 text-secondary text-wrap">{{ testResult.renderedUserPrompt }}</pre>
+        </div>
+      </div>
+    </ng-container>
+  </nz-drawer>
+</div>

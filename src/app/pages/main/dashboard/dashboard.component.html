@@ -1,11 +1,246 @@
-<div class="dashboard-container">
-  <div class="page-header">
-    <div>
-      <h2 class="page-title">Bảng Điều Khiển AI Gateway & Chi Phí</h2>
+<div class="ai-dashboard">
+  <!-- Page Header -->
+  <div class="dashboard-header">
+    <div class="header-title-wrap">
+      <div class="header-badge">
+        <span class="pulse-dot"></span>
+        <span class="badge-text">AI INFERENCE CONTROL CENTER</span>
+      </div>
+      <h2 class="page-title">
+        <span nz-icon nzType="dashboard" nzTheme="outline" class="title-icon"></span>
+        <span>Bảng Điều Khiển AI Gateway & Chi Phí Mô Hình</span>
+      </h2>
       <p class="page-subtitle">
-        Thống kê lưu lượng, token tiêu thụ và chi phí gọi mô hình AI toàn hệ
-        sinh thái ERP
+        Giám sát lưu lượng tokens, định tuyến đa nhà cung cấp LLM, hạn mức ngân sách và chi phí suy luận thời gian thực
       </p>
+    </div>
+    <div class="header-actions">
+      <a nz-button nzType="primary" routerLink="/playground" class="btn-playground">
+        <span nz-icon nzType="experiment" nzTheme="outline"></span>
+        Mở AI Playground
+      </a>
+      <button nz-button nzType="default" (click)="loadData()" [nzLoading]="isLoading" class="btn-refresh">
+        <span nz-icon nzType="reload" nzTheme="outline"></span>
+        Làm mới
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Cards Grid -->
+  <div class="kpi-grid">
+    <div class="kpi-card card-tokens">
+      <div class="kpi-icon-wrap">
+        <span nz-icon nzType="bulb" nzTheme="outline"></span>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Tokens Tiêu Thụ Tháng</span>
+        <span class="kpi-value">{{ (metrics?.currentMonth?.totalTokens || 0) | number }}</span>
+        <span class="kpi-subtext">
+          <span nz-icon nzType="thunderbolt" nzTheme="outline"></span>
+          {{ (metrics?.currentMonth?.totalRequests || 0) | number }} requests đã gọi
+        </span>
+      </div>
+      <div class="kpi-badge badge-blue">LLM Tokens</div>
+    </div>
+
+    <div class="kpi-card card-cost">
+      <div class="kpi-icon-wrap">
+        <span nz-icon nzType="dollar" nzTheme="outline"></span>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Chi Phí Tháng (USD)</span>
+        <span class="kpi-value">${{ (metrics?.currentMonth?.totalCostUsd || 0) | number: '1.2-4' }}</span>
+        <span class="kpi-subtext">
+          <span nz-icon nzType="check-circle" nzTheme="outline"></span>
+          Định tuyến tối ưu chi phí
+        </span>
+      </div>
+      <div class="kpi-badge badge-green">Budget Safe</div>
+    </div>
+
+    <div class="kpi-card card-latency">
+      <div class="kpi-icon-wrap">
+        <span nz-icon nzType="field-time" nzTheme="outline"></span>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Độ Trễ Trung Bình</span>
+        <span class="kpi-value">{{ metrics?.currentMonth?.averageLatencyMs || 0 }} <small>ms</small></span>
+        <span class="kpi-subtext">
+          <span nz-icon nzType="dashboard" nzTheme="outline"></span>
+          TTFB & Streaming response
+        </span>
+      </div>
+      <div class="kpi-badge badge-amber">Streaming</div>
+    </div>
+
+    <div class="kpi-card card-providers">
+      <div class="kpi-icon-wrap">
+        <span nz-icon nzType="cloud-server" nzTheme="outline"></span>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Trạng Thái Nhà Cung Cấp</span>
+        <span class="kpi-value">
+          {{ metrics?.healthyProviders || 0 }} / {{ metrics?.totalProviders || 0 }}
+          <small>Healthy</small>
+        </span>
+        <span class="kpi-subtext">
+          <span nz-icon nzType="safety-certificate" nzTheme="outline"></span>
+          Tự động fallback khả dụng
+        </span>
+      </div>
+      <div class="kpi-badge badge-purple">High Availability</div>
+    </div>
+  </div>
+
+  <!-- Charts Row: Tokens Area Chart + Daily Cost Bar Chart -->
+  <div class="charts-row">
+    <div class="panel-card chart-panel-tokens">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span nz-icon nzType="line-chart" nzTheme="outline"></span>
+          <span>Xu Hướng Tiêu Thụ Tokens (14 Ngày Qua)</span>
+        </div>
+        <span class="panel-tag">Input vs Output Tokens</span>
+      </div>
+      <div class="panel-body">
+        @if (hasTokenData && tokenChartOption) {
+          <div echarts [options]="tokenChartOption" class="echarts-chart" style="height: 300px;"></div>
+        } @else {
+          <div class="empty-chart-box">
+            <nz-empty nzNotFoundImage="simple" nzNotFoundContent="Chưa có dữ liệu gọi mô hình LLM trong 14 ngày qua"></nz-empty>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="panel-card chart-panel-cost">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span nz-icon nzType="bar-chart" nzTheme="outline"></span>
+          <span>Chi Phí Suy Luận Hàng Ngày (USD)</span>
+        </div>
+        <span class="panel-tag">Real Usage Cost</span>
+      </div>
+      <div class="panel-body">
+        @if (hasCostData && costChartOption) {
+          <div echarts [options]="costChartOption" class="echarts-chart" style="height: 300px;"></div>
+        } @else {
+          <div class="empty-chart-box">
+            <nz-empty nzNotFoundImage="simple" nzNotFoundContent="Chưa phát sinh chi phí gọi API trong 14 ngày qua"></nz-empty>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Row: Top Models Consumption + Provider Health Status -->
+  <div class="bottom-row">
+    <!-- Top Models Table / Donut -->
+    <div class="panel-card top-models-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span nz-icon nzType="appstore" nzTheme="outline"></span>
+          <span>Top Mô Hình AI Được Sử Dụng Nhiều Nhất</span>
+        </div>
+        <a routerLink="/models" class="link-more">Quản lý Models <span nz-icon nzType="arrow-right"></span></a>
+      </div>
+      <div class="panel-body">
+        @if (topModels.length > 0) {
+          <nz-table #modelTable [nzData]="topModels" [nzShowPagination]="false" nzSize="middle" class="enterprise-table">
+            <thead>
+              <tr>
+                <th>MÔ HÌNH AI</th>
+                <th nzAlign="right">SỐ REQUESTS</th>
+                <th nzAlign="right">TOKENS TIÊU THỤ</th>
+                <th nzAlign="right">CHI PHÍ (USD)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (m of modelTable.data; track m.modelId) {
+                <tr>
+                  <td>
+                    <div class="model-cell">
+                      <span nz-icon nzType="robot" nzTheme="outline" class="model-icon"></span>
+                      <span class="model-name">{{ m.modelName }}</span>
+                    </div>
+                  </td>
+                  <td nzAlign="right">
+                    <span class="num-badge">{{ m.requestCount | number }}</span>
+                  </td>
+                  <td nzAlign="right">
+                    <span class="token-badge">{{ m.totalTokens | number }}</span>
+                  </td>
+                  <td nzAlign="right">
+                    <strong class="cost-text">${{ m.totalCostUsd | number: '1.2-4' }}</strong>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </nz-table>
+        } @else {
+          <div class="empty-state-box">
+            <nz-empty nzNotFoundImage="simple" nzNotFoundContent="Chưa có dữ liệu gọi mô hình nào trong hệ thống"></nz-empty>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Provider Health Panel -->
+    <div class="panel-card providers-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span nz-icon nzType="api" nzTheme="outline"></span>
+          <span>Sức Khỏe Nhà Cung Cấp (Providers)</span>
+        </div>
+        <a routerLink="/providers" class="link-more">Cấu hình <span nz-icon nzType="arrow-right"></span></a>
+      </div>
+      <div class="panel-body">
+        @if (providersHealth.length > 0) {
+          <div class="provider-list">
+            @for (p of providersHealth; track p.id) {
+              <div class="provider-item">
+                <div class="provider-main">
+                  <div class="provider-avatar" [class.healthy]="p.healthStatus === 'Healthy'">
+                    <span nz-icon nzType="cloud-server" nzTheme="outline"></span>
+                  </div>
+                  <div class="provider-info">
+                    <div class="provider-name-row">
+                      <span class="provider-name">{{ p.name }}</span>
+                      <nz-tag class="type-tag">{{ p.providerType }}</nz-tag>
+                    </div>
+                    <div class="provider-meta">
+                      @if (p.healthStatus === 'Healthy') {
+                        <span class="status-indicator online">
+                          <span class="dot"></span> Sẵn sàng ({{ p.latencyMs || 0 }}ms)
+                        </span>
+                      } @else {
+                        <span class="status-indicator offline">
+                          <span class="dot"></span> Không khả dụng
+                        </span>
+                      }
+                    </div>
+                  </div>
+                </div>
+                <button
+                  nz-button
+                  nzType="default"
+                  nzSize="small"
+                  [nzLoading]="p.testing"
+                  (click)="pingProvider(p)"
+                  class="btn-ping"
+                >
+                  <span nz-icon nzType="thunderbolt" nzTheme="outline"></span>
+                  Kiểm tra
+                </button>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state-box">
+            <nz-empty nzNotFoundImage="simple" nzNotFoundContent="Chưa cấu hình nhà cung cấp AI nào"></nz-empty>
+          </div>
+        }
+      </div>
     </div>
   </div>
 </div>

@@ -1,0 +1,180 @@
+<div class="models-container">
+  <div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="page-title mb-1">
+        <i nz-icon nzType="appstore" class="me-2 text-primary"></i>
+        Danh Mục Mô Hình AI (Models)
+      </h2>
+      <p class="page-subtitle text-muted mb-0">
+        Định hình năng lực mô hình (Chat, Vision, OCR, Tools, Embedding), cấu hình đơn giá theo 1 Triệu Tokens và chỉ định mô hình mặc định
+      </p>
+    </div>
+    <div class="d-flex gap-2">
+      <nz-select
+        [(ngModel)]="selectedProviderId"
+        (ngModelChange)="loadModels()"
+        nzPlaceHolder="Lọc theo Provider"
+        style="width: 220px;"
+        nzAllowClear
+      >
+        <nz-option *ngFor="let p of providers" [nzLabel]="p.name" [nzValue]="p.id"></nz-option>
+      </nz-select>
+      <button nz-button nzType="primary" (click)="openCreateModal()">
+        <i nz-icon nzType="plus"></i> Thêm Mô Hình
+      </button>
+    </div>
+  </div>
+
+  <nz-card class="shadow-sm border-0">
+    <nz-table #modelTable [nzData]="models" [nzLoading]="isLoading" nzSize="middle">
+      <thead>
+        <tr>
+          <th>Tên Mô Hình / Code</th>
+          <th>Provider</th>
+          <th>Giá Input / 1M</th>
+          <th>Giá Output / 1M</th>
+          <th>Context Window</th>
+          <th>Năng Lực Hỗ Trợ</th>
+          <th>Trạng Thái</th>
+          <th nzAlign="right">Thao Tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let m of modelTable.data">
+          <td>
+            <div class="font-weight-bold d-flex align-items-center gap-1">
+              {{ m.displayName }}
+              <nz-tag *ngIf="m.isDefault" nzColor="gold" class="ms-1">Mặc định</nz-tag>
+            </div>
+            <code class="small text-muted">{{ m.modelCode }}</code>
+          </td>
+          <td>
+            <nz-tag [nzColor]="m.providerType === 'OpenAI' ? 'blue' : m.providerType === 'Gemini' ? 'purple' : 'default'">
+              {{ m.providerName }}
+            </nz-tag>
+          </td>
+          <td>
+            <span class="text-primary font-weight-medium">${{ m.inputPricePer1M | number: '1.2-4' }}</span>
+          </td>
+          <td>
+            <span class="text-success font-weight-medium">${{ m.outputPricePer1M | number: '1.2-4' }}</span>
+          </td>
+          <td>{{ m.maxContextTokens | number }} tokens</td>
+          <td>
+            <div class="capability-badges d-flex flex-wrap gap-1">
+              <nz-tag *ngIf="hasCapability(m.capabilities, 1)" nzColor="processing">Chat</nz-tag>
+              <nz-tag *ngIf="hasCapability(m.capabilities, 2)" nzColor="magenta">Vision</nz-tag>
+              <nz-tag *ngIf="hasCapability(m.capabilities, 4)" nzColor="orange">OCR</nz-tag>
+              <nz-tag *ngIf="hasCapability(m.capabilities, 8)" nzColor="geekblue">Embedding</nz-tag>
+              <nz-tag *ngIf="hasCapability(m.capabilities, 16)" nzColor="cyan">JSON</nz-tag>
+              <nz-tag *ngIf="hasCapability(m.capabilities, 32)" nzColor="volcano">Tools</nz-tag>
+            </div>
+          </td>
+          <td>
+            <nz-badge [nzStatus]="m.isActive ? 'success' : 'default'" [nzText]="m.isActive ? 'Hoạt động' : 'Tạm dừng'"></nz-badge>
+          </td>
+          <td nzAlign="right">
+            <button nz-button nzType="text" nzSize="small" (click)="openEditModal(m)">
+              <i nz-icon nzType="edit"></i>
+            </button>
+            <button nz-button nzType="text" nzDanger nzSize="small" nz-popconfirm nzPopconfirmTitle="Xóa model này?" (nzOnConfirm)="deleteModel(m)">
+              <i nz-icon nzType="delete"></i>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </nz-table>
+  </nz-card>
+
+  <!-- Create/Edit Modal -->
+  <nz-modal
+    [(nzVisible)]="modalVisible"
+    [nzTitle]="editingModelId ? 'Cập Nhật Mô Hình AI' : 'Thêm Mới Mô Hình AI'"
+    (nzOnCancel)="modalVisible = false"
+    (nzOnOk)="handleSave()"
+    [nzOkLoading]="isSubmitting"
+    nzWidth="680px"
+  >
+    <ng-container *nzModalContent>
+      <form nz-form [formGroup]="form" nzLayout="vertical">
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Nhà Cung Cấp (Provider)</nz-form-label>
+              <nz-form-control>
+                <nz-select formControlName="providerId" nzPlaceHolder="Chọn Provider">
+                  <nz-option *ngFor="let p of providers" [nzLabel]="p.name" [nzValue]="p.id"></nz-option>
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Tên Hiển Thị</nz-form-label>
+              <nz-form-control nzErrorTip="Vui lòng nhập tên hiển thị">
+                <input nz-input formControlName="displayName" placeholder="Ví dụ: GPT-4o Omnimodal" />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Model Code (Chuẩn gọi API)</nz-form-label>
+              <nz-form-control nzErrorTip="Vui lòng nhập mã model">
+                <input nz-input formControlName="modelCode" placeholder="gpt-4o, gemini-1.5-flash, deepseek-chat" />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Context Window Tối Đa (Tokens)</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="maxContextTokens" [nzMin]="1024" [nzMax]="2000000" [nzStep]="4096" class="w-100"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <div nz-row [nzGutter]="16">
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Giá Input / 1M Tokens ($)</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="inputPricePer1M" [nzMin]="0" [nzStep]="0.01" class="w-100"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+          <div nz-col [nzSpan]="12">
+            <nz-form-item>
+              <nz-form-label nzRequired>Giá Output / 1M Tokens ($)</nz-form-label>
+              <nz-form-control>
+                <nz-input-number formControlName="outputPricePer1M" [nzMin]="0" [nzStep]="0.01" class="w-100"></nz-input-number>
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+        </div>
+
+        <nz-form-item>
+          <nz-form-label>Năng Lực & Khả Năng Xử Lý (Bitmask)</nz-form-label>
+          <nz-form-control>
+            <nz-select formControlName="capabilities" nzPlaceHolder="Chọn khả năng xử lý">
+              <nz-option [nzLabel]="'Chat Text tiêu chuẩn'" [nzValue]="1"></nz-option>
+              <nz-option [nzLabel]="'Chat + Vision (Đa phương thức)'" [nzValue]="3"></nz-option>
+              <nz-option [nzLabel]="'Full Omnimodal (Chat + Vision + Tools + JSON)'" [nzValue]="51"></nz-option>
+              <nz-option [nzLabel]="'Embedding Vector'" [nzValue]="8"></nz-option>
+              <nz-option [nzLabel]="'OCR trích xuất tài liệu chứng từ'" [nzValue]="7"></nz-option>
+            </nz-select>
+          </nz-form-control>
+        </nz-form-item>
+
+        <div class="d-flex gap-4 mb-3">
+          <label nz-checkbox formControlName="supportsStreaming">Hỗ trợ SSE Streaming</label>
+          <label nz-checkbox formControlName="isDefault">Đặt làm Mô hình mặc định</label>
+          <label nz-checkbox formControlName="isActive">Kích hoạt</label>
+        </div>
+      </form>
+    </ng-container>
+  </nz-modal>
+</div>

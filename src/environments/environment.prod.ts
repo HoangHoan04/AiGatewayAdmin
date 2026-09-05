@@ -6,5 +6,5 @@ export const environment = {
   authApiUrl: "/auth-api",
   authUrl: "/auth",
   ssoLoginUrl: "/auth/sso",
-  clientId: "ai-gateway",
+  clientId: "ai-gateway-7e17f5",
 };

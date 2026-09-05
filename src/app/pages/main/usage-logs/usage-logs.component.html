@@ -1,0 +1,172 @@
+<div class="usage-logs-container">
+  <div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="page-title mb-1">
+        <i nz-icon nzType="history" class="me-2 text-primary"></i>
+        Nhật Ký Gọi Mô Hình & Kiểm Toán Chi Phí
+      </h2>
+      <p class="page-subtitle text-muted mb-0">
+        Tra cứu chi tiết từng yêu cầu LLM, tokens tiêu thụ, phân rã chi phí USD, độ trễ và lý do fallback
+      </p>
+    </div>
+    <button nz-button nzType="default" (click)="loadLogs(); loadStats()">
+      <i nz-icon nzType="reload"></i> Làm mới
+    </button>
+  </div>
+
+  <!-- Stats Strip -->
+  <div nz-row [nzGutter]="16" class="mb-4">
+    <div nz-col [nzXs]="12" [nzSm]="6" [nzLg]="4">
+      <nz-card class="mini-stat-card shadow-sm border-0">
+        <div class="small text-muted">Tổng Yêu Cầu</div>
+        <div class="h5 font-weight-bold mb-0 text-primary">{{ stats.totalRequests | number }}</div>
+      </nz-card>
+    </div>
+    <div nz-col [nzXs]="12" [nzSm]="6" [nzLg]="5">
+      <nz-card class="mini-stat-card shadow-sm border-0">
+        <div class="small text-muted">Tổng Tokens Tiêu Thụ</div>
+        <div class="h5 font-weight-bold mb-0">{{ stats.totalTokens | number }}</div>
+      </nz-card>
+    </div>
+    <div nz-col [nzXs]="12" [nzSm]="6" [nzLg]="5">
+      <nz-card class="mini-stat-card shadow-sm border-0">
+        <div class="small text-muted">Tổng Chi Phí (USD)</div>
+        <div class="h5 font-weight-bold mb-0 text-success">${{ stats.totalCostUsd | number: '1.2-4' }}</div>
+      </nz-card>
+    </div>
+    <div nz-col [nzXs]="12" [nzSm]="6" [nzLg]="5">
+      <nz-card class="mini-stat-card shadow-sm border-0">
+        <div class="small text-muted">Độ Trễ Trung Bình</div>
+        <div class="h5 font-weight-bold mb-0 text-info">{{ stats.averageLatencyMs }} ms</div>
+      </nz-card>
+    </div>
+    <div nz-col [nzXs]="12" [nzSm]="6" [nzLg]="5">
+      <nz-card class="mini-stat-card shadow-sm border-0">
+        <div class="small text-muted">Tỉ Lệ Thành Công</div>
+        <div class="h5 font-weight-bold mb-0 text-warning">{{ stats.successRate }}%</div>
+      </nz-card>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <nz-card class="shadow-sm border-0 mb-4 filter-card">
+    <div nz-row [nzGutter]="16">
+      <div nz-col [nzXs]="24" [nzSm]="6">
+        <nz-select
+          [(ngModel)]="selectedProjectId"
+          (ngModelChange)="onFilterChange()"
+          nzPlaceHolder="Lọc theo Dự án"
+          class="w-100"
+          nzAllowClear
+        >
+          <nz-option *ngFor="let p of projects" [nzLabel]="p.name" [nzValue]="p.id"></nz-option>
+        </nz-select>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzSm]="6">
+        <nz-select
+          [(ngModel)]="selectedProviderType"
+          (ngModelChange)="onFilterChange()"
+          nzPlaceHolder="Lọc theo Provider"
+          class="w-100"
+          nzAllowClear
+        >
+          <nz-option nzLabel="OpenAI" nzValue="OpenAI"></nz-option>
+          <nz-option nzLabel="Google Gemini" nzValue="Gemini"></nz-option>
+          <nz-option nzLabel="Ollama" nzValue="Ollama"></nz-option>
+          <nz-option nzLabel="DeepSeek" nzValue="DeepSeek"></nz-option>
+        </nz-select>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzSm]="6">
+        <nz-select
+          [(ngModel)]="selectedEndpoint"
+          (ngModelChange)="onFilterChange()"
+          nzPlaceHolder="Endpoint API"
+          class="w-100"
+          nzAllowClear
+        >
+          <nz-option nzLabel="Chat Complete" nzValue="Chat"></nz-option>
+          <nz-option nzLabel="Embedding" nzValue="Embedding"></nz-option>
+          <nz-option nzLabel="Document OCR" nzValue="Ocr"></nz-option>
+          <nz-option nzLabel="Content Generate" nzValue="Content"></nz-option>
+          <nz-option nzLabel="Forecast Predict" nzValue="Forecast"></nz-option>
+        </nz-select>
+      </div>
+
+      <div nz-col [nzXs]="24" [nzSm]="6">
+        <nz-select
+          [(ngModel)]="selectedStatus"
+          (ngModelChange)="onFilterChange()"
+          nzPlaceHolder="Trạng Thái Gọi"
+          class="w-100"
+          nzAllowClear
+        >
+          <nz-option nzLabel="Thành công (Success)" nzValue="Success"></nz-option>
+          <nz-option nzLabel="Lỗi (Failed)" nzValue="Failed"></nz-option>
+          <nz-option nzLabel="Giới hạn (Throttled)" nzValue="Throttled"></nz-option>
+          <nz-option nzLabel="Chuyển hướng (Fallback)" nzValue="Fallback"></nz-option>
+        </nz-select>
+      </div>
+    </div>
+  </nz-card>
+
+  <!-- Logs Table -->
+  <nz-card class="shadow-sm border-0">
+    <nz-table
+      #logTable
+      [nzData]="logs"
+      [nzLoading]="isLoading"
+      [nzTotal]="totalItems"
+      [nzPageIndex]="page"
+      [nzPageSize]="pageSize"
+      (nzPageIndexChange)="onPageChange($event)"
+      nzFrontPagination="false"
+      nzSize="middle"
+    >
+      <thead>
+        <tr>
+          <th>Thời Gian</th>
+          <th>Dự Án</th>
+          <th>Mô Hình</th>
+          <th>Endpoint</th>
+          <th>Tokens (In / Out / Tổng)</th>
+          <th>Chi Phí (USD)</th>
+          <th>Độ Trễ</th>
+          <th>Trạng Thái</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let l of logTable.data">
+          <td>{{ l.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</td>
+          <td>
+            <strong>{{ l.projectName }}</strong>
+            <div class="small text-muted">{{ l.projectCode }}</div>
+          </td>
+          <td>
+            <div class="font-weight-medium">{{ l.modelDisplayName || l.modelCode }}</div>
+            <nz-tag nzColor="blue" class="small">{{ l.providerType }}</nz-tag>
+          </td>
+          <td>
+            <nz-tag>{{ l.endpoint }}</nz-tag>
+          </td>
+          <td>
+            <span class="text-primary">{{ l.inputTokens | number }}</span> /
+            <span class="text-success">{{ l.outputTokens | number }}</span> =
+            <strong>{{ l.totalTokens | number }}</strong>
+          </td>
+          <td>
+            <strong class="text-success">${{ l.costUsd | number: '1.4-6' }}</strong>
+          </td>
+          <td>{{ l.latencyMs }} ms</td>
+          <td>
+            <nz-tag [nzColor]="l.status === 'Success' ? 'success' : l.status === 'Fallback' ? 'warning' : 'error'">
+              {{ l.status }}
+            </nz-tag>
+            <div *ngIf="l.errorCode" class="text-danger small font-italic">{{ l.errorCode }}</div>
+          </td>
+        </tr>
+      </tbody>
+    </nz-table>
+  </nz-card>
+</div>

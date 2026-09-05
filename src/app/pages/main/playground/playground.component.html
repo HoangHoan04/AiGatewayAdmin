@@ -1,0 +1,129 @@
+<div class="playground-container">
+  <div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="page-title mb-1">
+        <i nz-icon nzType="experiment" class="me-2 text-primary"></i>
+        AI Playground Trực Quan
+      </h2>
+      <p class="page-subtitle text-muted mb-0">
+        Thử nghiệm trực tiếp với tất cả các mô hình AI upstream, tinh chỉnh siêu tham số và theo dõi số lượng tokens thời gian thực
+      </p>
+    </div>
+    <div class="d-flex gap-2">
+      <button nz-button nzType="default" (click)="clearChat()" [disabled]="messages.length === 0">
+        <i nz-icon nzType="delete"></i> Xóa Hội Thoại
+      </button>
+    </div>
+  </div>
+
+  <div nz-row [nzGutter]="16" class="playground-body">
+    <!-- Parameters Configuration Column (Left) -->
+    <div nz-col [nzXs]="24" [nzLg]="8" class="settings-column">
+      <nz-card nzTitle="Cấu Hình Mô Hình & Siêu Tham Số" class="shadow-sm border-0 h-100">
+        <div class="mb-3">
+          <label class="font-weight-bold d-block mb-1">Mô Hình AI (Model)</label>
+          <nz-select [(ngModel)]="selectedModel" class="w-100">
+            <nz-option *ngFor="let m of models" [nzLabel]="m.displayName + ' (' + m.providerName + ')'" [nzValue]="m.modelCode"></nz-option>
+          </nz-select>
+        </div>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between">
+            <label class="font-weight-bold">Temperature: {{ temperature }}</label>
+            <span class="text-muted small">0 = Chính xác, 1 = Sáng tạo</span>
+          </div>
+          <nz-slider [(ngModel)]="temperature" [nzMin]="0" [nzMax]="1" [nzStep]="0.05"></nz-slider>
+        </div>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between">
+            <label class="font-weight-bold">Max Tokens: {{ maxTokens }}</label>
+            <span class="text-muted small">Tối đa</span>
+          </div>
+          <nz-slider [(ngModel)]="maxTokens" [nzMin]="128" [nzMax]="4096" [nzStep]="128"></nz-slider>
+        </div>
+
+        <div class="mb-3">
+          <label class="font-weight-bold d-block mb-1">System Prompt (Chỉ Dẫn Hệ Thống)</label>
+          <textarea
+            nz-input
+            [(ngModel)]="systemPrompt"
+            rows="5"
+            placeholder="Bạn là chuyên gia tư vấn ERP..."
+            class="font-size-sm"
+          ></textarea>
+        </div>
+
+        <div class="quick-prompts-box mt-3 pt-3 border-top">
+          <div class="font-weight-bold small text-muted mb-2">Gợi ý thử nhanh (Quick Prompts):</div>
+          <div class="d-flex flex-column gap-1">
+            <button nz-button nzSize="small" nzType="dashed" class="text-start" (click)="quickPrompt('Trích xuất thông tin hóa đơn: Công ty ABC, MST 0101234567, tổng tiền 15.000.000 VNĐ')">
+              🧾 Trích xuất dữ liệu hóa đơn
+            </button>
+            <button nz-button nzSize="small" nzType="dashed" class="text-start" (click)="quickPrompt('Tạo bản mô tả công việc (JD) cho Trưởng phòng Kho vận (WMS Manager)')">
+              👔 Soạn thảo JD Trưởng phòng Kho
+            </button>
+            <button nz-button nzSize="small" nzType="dashed" class="text-start" (click)="quickPrompt('Phân tích tồn kho SKU ABC-123 có lịch sử xuất: [120, 140, 110, 180, 210, 240]')">
+              📈 Dự báo tồn kho SKU
+            </button>
+          </div>
+        </div>
+      </nz-card>
+    </div>
+
+    <!-- Chat Conversation Thread (Right) -->
+    <div nz-col [nzXs]="24" [nzLg]="16" class="chat-column">
+      <nz-card class="shadow-sm border-0 chat-card d-flex flex-column">
+        <!-- Messages Area -->
+        <div class="chat-messages-container flex-grow-1 p-3 overflow-auto">
+          <div *ngIf="messages.length === 0" class="empty-chat text-center text-muted my-5 py-4">
+            <i nz-icon nzType="message" class="empty-icon text-muted mb-3"></i>
+            <h5>Chưa có tin nhắn nào</h5>
+            <p class="small text-muted">Hãy nhập câu hỏi bên dưới hoặc chọn một mẫu prompt gợi ý ở cột bên trái</p>
+          </div>
+
+          <div *ngFor="let m of messages" class="chat-message mb-3" [class.user-message]="m.role === 'user'" [class.assistant-message]="m.role === 'assistant'">
+            <div class="message-bubble p-3 rounded">
+              <div class="message-role-label small font-weight-bold mb-1">
+                <i nz-icon [nzType]="m.role === 'user' ? 'user' : 'robot'"></i>
+                {{ m.role === 'user' ? 'Bạn (Client)' : 'AI Model (' + selectedModel + ')' }}
+              </div>
+              <div class="message-content text-wrap">
+                <pre class="mb-0">{{ m.content }}</pre>
+              </div>
+              <div *ngIf="m.tokens" class="message-meta text-muted small mt-2 pt-1 border-top d-flex justify-content-between">
+                <span>Tokens: <strong>{{ m.tokens }}</strong> | Độ trễ: <strong>{{ m.latencyMs }}ms</strong></span>
+                <span *ngIf="m.costUsd" class="text-success">Chi phí: ${{ m.costUsd | number: '1.4-6' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="isLoading" class="assistant-message chat-message mb-3">
+            <div class="message-bubble p-3 rounded bg-light">
+              <i nz-icon nzType="loading" class="text-primary me-2"></i>
+              <span class="text-muted">Đang kết nối qua AI Gateway và sinh nội dung phản hồi...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="chat-input-area p-3 border-top bg-white">
+          <div class="input-wrapper d-flex gap-2">
+            <textarea
+              nz-input
+              [(ngModel)]="userInput"
+              rows="2"
+              placeholder="Nhập câu lệnh prompt tại đây (Nhấn Ctrl+Enter để gửi)..."
+              (keydown.control.enter)="sendMessage()"
+              [disabled]="isLoading"
+              class="flex-grow-1"
+            ></textarea>
+            <button nz-button nzType="primary" class="send-btn h-auto px-4" [nzLoading]="isLoading" (click)="sendMessage()">
+              <i nz-icon nzType="send"></i> Gửi
+            </button>
+          </div>
+        </div>
+      </nz-card>
+    </div>
+  </div>
+</div>

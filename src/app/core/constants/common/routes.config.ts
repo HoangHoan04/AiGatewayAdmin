@@ -25,6 +25,42 @@ export const ROUTES_CONFIG = {
     path: "/dashboard",
     icon: "dashboard",
   },
+  PROVIDERS: {
+    key: "PROVIDERS",
+    label: "Quản lý Provider",
+    path: "/providers",
+    icon: "cloud-server",
+  },
+  MODELS: {
+    key: "MODELS",
+    label: "Danh mục Mô hình AI",
+    path: "/models",
+    icon: "appstore",
+  },
+  PROJECTS: {
+    key: "PROJECTS",
+    label: "Dự án & API Keys",
+    path: "/projects",
+    icon: "project",
+  },
+  TEMPLATES: {
+    key: "TEMPLATES",
+    label: "Prompt Studio",
+    path: "/templates",
+    icon: "code",
+  },
+  PLAYGROUND: {
+    key: "PLAYGROUND",
+    label: "AI Playground",
+    path: "/playground",
+    icon: "experiment",
+  },
+  USAGE_LOGS: {
+    key: "USAGE_LOGS",
+    label: "Nhật ký & Chi phí",
+    path: "/usage-logs",
+    icon: "history",
+  },
 } as const satisfies Record<string, RouteConfig>;
 
 export function getRouteByPath(path: string): RouteConfig | undefined {
